@@ -1,0 +1,5 @@
+---
+triple:          'arm64-apple-darwin'
+binary-path:     "/Users/yhx/Desktop/大二上/数据结构/ex0/debug"
+relocations:     []
+...

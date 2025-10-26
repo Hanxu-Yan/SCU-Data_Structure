@@ -163,6 +163,13 @@ private:
     void move_to_line(int line_num); // 移动到指定行号
     void insert_line_after(); // 在当前行后插入新行
     void delete_current_line(); // 删除当前行
+    void replace_current_line(); // 替换当前行内容
+    void replace_substring_in_current_line(); // 替换当前行中的指定子串
+    void find_substring(); // 查找指定子串
+    void show_stats(); // 统计文件行数和字符数 
+    void reload_file(); // 重新从输入文件读入，放弃所有修改
+    void save_to_file(); // 保存当前内容到输出文件
+    void exit_editor(); // 退出编辑器
 
     bool load_file(const string& filename);  // 从文件加载内容到缓冲区
     void print_current_line_info(); // 打印当前行信息
@@ -195,7 +202,7 @@ bool TextEditor::load_file(const string& filename)
     }
 
     file.close();
-
+    // 初始化光标位置
     if (buffer.length > 0)
     {
         cursor = buffer.head;
@@ -230,7 +237,8 @@ void TextEditor::run()
         case 'b': move_to_last_line(); break;
         case 'p': move_to_prev_line(); break;
         case 'n': move_to_next_line(); break;
-        case 'g': {
+        case 'g': 
+        {
             int line_num;
             cout << "输入行号: ";
             cin >> line_num;
@@ -239,7 +247,18 @@ void TextEditor::run()
         } break;
         case 'i': insert_line_after(); break;
         case 'x': delete_current_line(); break;
-        
+        case 'c': replace_current_line(); break;
+        case 'r': replace_substring_in_current_line(); break;
+        case 'f': find_substring(); break;
+        case 's': show_stats(); break;
+        case 'l': reload_file(); break;
+        case 'w': save_to_file(); break;
+        case 'q': 
+        {
+            cout << "退出编辑器。" << endl;
+            return;
+        }
+
         default:
             cout << "未知命令 '" << command << "'。输入 'h' 获取帮助。" << endl;
         }
@@ -407,6 +426,119 @@ void TextEditor::delete_current_line()
     }
     buffer.delete_node(node_to_delete);
     cout << "已删除当前行。" << endl;
+}
+void TextEditor::replace_current_line()
+{
+    if (!cursor)
+    {
+        cout << "文件为空，无法替换。" << endl;
+        return;
+    }
+    string new_line;
+    cout << "输入新行内容: ";
+    getline(cin, new_line);
+    cursor->data = new_line;
+    cout << "已替换当前行内容。" << endl;
+}
+void TextEditor::replace_substring_in_current_line()
+{
+    if (!cursor)
+    {
+        cout << "文件为空，无法替换子串。" << endl;
+        return;
+    }
+    string old_substr, new_substr;
+    cout << "输入要替换的子串: ";
+    getline(cin, old_substr);
+    cout << "输入新的子串: ";
+    getline(cin, new_substr);
+    size_t pos = cursor->data.find(old_substr);
+    if (pos == string::npos)
+    {
+        cout << "未找到要替换的子串。" << endl;
+    }
+    else
+    {
+        int count = 0;
+        while (pos != string::npos)
+        {
+            cursor->data.replace(pos, old_substr.length(), new_substr);
+            pos = cursor->data.find(old_substr, pos + new_substr.length());
+            count++;
+        }
+        cout << "已在当前行完成 " << count << " 次替换。" << endl;
+    }
+}
+void TextEditor::find_substring()
+{
+    if (!buffer.head)
+    {
+        cout << "文件为空，无法查找子串。" << endl;
+        return;
+    }
+    string substr;
+    cout << "输入要查找的子串: ";
+    getline(cin, substr);
+    Node* search = cursor;
+    int line_num = cursor_lines;
+    do
+    {
+        size_t pos = search->data.find(substr);
+        if (pos != string::npos)
+        {
+            cout << "在第 " << line_num << " 行找到子串 '" << substr << "'。" << endl;
+            cursor = search;
+            cursor_lines = line_num;
+            return;
+        }
+        search = (search->next) ? search->next : buffer.head;
+        line_num = (search == buffer.head) ? 1 : line_num + 1;
+    } while (search != cursor);
+
+    cout << "在整个文件里未找到子串 '" << substr << "'。" << endl;
+
+}
+void TextEditor::show_stats()
+{
+    long long char_count = 0;
+    Node* current = buffer.head;
+    while (current)
+    {
+        char_count += current->data.length();
+        current = current->next;
+    }
+    cout << "--- 文件统计 ---\n"
+         << "总行数: " << buffer.length << "\n"
+         << "总字符数: " << char_count << "\n"
+         << "-----------------\n";
+}
+void TextEditor::reload_file()
+{
+    cout << "重新从 '" << input_filename << "' 加载文件... 所有未保存的修改将丢失。" << endl;
+    if (load_file(input_filename)) 
+    {
+        cout << "文件重新加载成功。" << endl;
+    } else 
+    {
+        cout << "警告：无法重新加载输入文件，缓冲区可能为空。" << endl;
+    }
+}
+void TextEditor::save_to_file()
+{
+    ofstream file(output_filename);
+    if (!file.is_open())
+    {
+        cout << "无法打开输出文件 '" << output_filename << "' 进行写入。" << endl;
+        return;
+    }
+    Node* current = buffer.head;
+    while (current)
+    {
+        file << current->data << endl;
+        current = current->next;
+    }
+    file.close();
+    cout << "已将当前内容保存到 '" << output_filename << "'。" << endl;
 }
 
 int main(int argc, char* argv[])

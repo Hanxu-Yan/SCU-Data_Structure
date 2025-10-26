@@ -1,5 +1,8 @@
 #include <iostream>
 #include <string>
+#include <fstream>
+#include <limits>
+
 using namespace std;
 
 struct Node
@@ -10,7 +13,7 @@ struct Node
 
     Node(const string& val) : data(val), prev(nullptr), next(nullptr) {}
 };
-
+// 双向链表类
 class DLinkList
 {
 public:
@@ -26,6 +29,8 @@ public:
 
     void insert_after(Node* prev_node, const string& val);
     void insert_before(Node* next_node, const string& val);
+
+    void delete_node(Node* del_node);
 };
 
 DLinkList::DLinkList() : head(nullptr), tail(nullptr), length(0) {}
@@ -103,24 +108,318 @@ void DLinkList::insert_before(Node* next_node, const string& val)
     }
     else 
     {
-        
+        insert_after(next_node->prev, val);
     }
 }
-int main()
+void DLinkList::delete_node(Node* del_node)
 {
-    DLinkList dlist;
-    dlist.push_back("Node1");
-    dlist.push_back("Node2");
-
-    // Insert after the first node
-    Node* firstNode = dlist.head; // Assuming head is accessible for demonstration
-    dlist.insert_after(firstNode, "Node1.5");
-    // Print the list to verify insertion
-    for (Node* curr = dlist.head; curr != nullptr; curr = curr->next)
+    if (!del_node)
     {
-        cout << curr->data << " ";
+        cout << "不能删除空节点" << endl;
+        return;
     }
-    cout << endl;
+    if (del_node == head)
+    {
+        head = head->next;
+        if (head) head->prev = nullptr;
+        else tail = nullptr; //变成空链表了
+    }
+    else if (del_node == tail)
+    {
+        tail = tail->prev;
+        if (tail) tail->next = nullptr;
+        else head = nullptr; //变成空链表了
+    }
+    else
+    {
+        del_node->prev->next = del_node->next;
+        del_node->next->prev = del_node->prev;
+    }
+
+    delete del_node;
+    length--;
+}
+
+
+//文本编辑类
+class TextEditor
+{
+private:
+    DLinkList buffer;
+    Node* cursor; // 当前指针位置
+    int cursor_lines; // 当前行号
+    string input_filename;
+    string output_filename;
+public:
+    TextEditor(const string& in_file, const string& out_file);
+    void run();
+private:
+    void show_help(); // 显示帮助信息
+    void display_all(); // 显示所有文件内容
+    void move_to_first_line(); // 移动到第一行
+    void move_to_last_line(); // 移动到最后一行
+    void move_to_prev_line(); // 移动到前一行
+    void move_to_next_line(); // 移动到下一行
+    void move_to_line(int line_num); // 移动到指定行号
+    void insert_line_after(); // 在当前行后插入新行
+    void delete_current_line(); // 删除当前行
+
+    bool load_file(const string& filename);  // 从文件加载内容到缓冲区
+    void print_current_line_info(); // 打印当前行信息
+};
+TextEditor::TextEditor(const string& in_file, const string& out_file):input_filename(in_file), output_filename(out_file), cursor(nullptr), cursor_lines(0) 
+{
+    if (!load_file(input_filename))
+    {
+        cout << "输入文件为空或无法打开" << input_filename << endl;
+    }
+    if (buffer.head)
+    {
+        cursor = buffer.head;
+        cursor_lines = 1;
+    }
+}
+bool TextEditor::load_file(const string& filename)
+{
+    ifstream file(filename);
+    if (!file.is_open())
+    {
+        return false;
+    }
+
+    buffer.clear();
+    string line;
+    while (getline(file, line))
+    {
+        buffer.push_back(line);
+    }
+
+    file.close();
+
+    if (buffer.length > 0)
+    {
+        cursor = buffer.head;
+        cursor_lines = 1;
+    }
+    else
+    {
+        cursor = nullptr;
+        cursor_lines = 0;
+    }
+
+    return buffer.length > 0;
+}
+void TextEditor::run()
+{
+    char command;
+    cout << "简易文本编辑器已启动。输入 'h' 获取帮助。" << endl;
+
+    while (true)
+    {
+        print_current_line_info();
+        cout << "> ";
+        cin >> command;
+
+        // 清除输入缓冲区中留下的换行符
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+        switch (tolower(command))
+        {
+        case 'h': show_help(); break;
+        case 'd': display_all(); break;
+        case 't': move_to_first_line(); break;
+        case 'b': move_to_last_line(); break;
+        case 'p': move_to_prev_line(); break;
+        case 'n': move_to_next_line(); break;
+        case 'g': {
+            int line_num;
+            cout << "输入行号: ";
+            cin >> line_num;
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            move_to_line(line_num);
+        } break;
+        case 'i': insert_line_after(); break;
+        case 'x': delete_current_line(); break;
+        
+        default:
+            cout << "未知命令 '" << command << "'。输入 'h' 获取帮助。" << endl;
+        }
+    }
+    
+}
+void TextEditor::print_current_line_info()
+{
+    if (cursor)
+    {
+        cout << "[" << cursor_lines << "/" << buffer.length << "] " << cursor->data << endl;
+    }
+    else
+    {
+        cout << "空白行" << endl;
+    }
+}
+void TextEditor::show_help()
+{
+    cout << "\n--- 命令帮助 ---\n"
+         << "h: 显示此帮助信息\n"
+         << "d: 显示当前文件所有内容\n"
+         << "t: 跳转到第一行\n"
+         << "b: 跳转到最后一行\n"
+         << "p: 跳转到前一行\n"
+         << "n: 跳转到下一行\n"
+         << "g: 跳转到指定行号\n"
+         << "i: 在当前行后插入新行\n"
+         << "x: 删除当前行\n"
+         << "c: 替换当前行内容\n"
+         << "r: 替换当前行中的指定子串\n"
+         << "f: 查找指定子串\n"
+         << "s: 统计文件行数和字符数\n"
+         << "l: 重新从输入文件读入，放弃所有修改\n"
+         << "w: 保存当前内容到输出文件\n"
+         << "q: 退出系统\n"
+         << "-----------------\n";
+}
+void TextEditor::display_all()
+{
+    if (!buffer.head)
+    {
+        cout << "[文件为空]" << endl;
+        return;
+    }
+    Node* current = buffer.head;
+    int line_num = 1;
+    while (current)
+    {
+        if(current == cursor)
+        {
+            cout << "->" << line_num << ": " << current->data << endl;
+        }
+        else
+        {
+            cout << "  " << line_num << ": " << current->data << endl;
+        }
+        current = current->next;
+        line_num++;
+    }
+
+}
+void TextEditor::move_to_first_line()
+{
+    if (buffer.head)
+    {
+        cursor = buffer.head;
+        cursor_lines = 1;
+        cout << "已移动到第一行。" << endl;
+    }
+    else
+    {
+        cout << "文件为空。" << endl;
+    }
+}
+void TextEditor::move_to_last_line()
+{
+    if (buffer.tail)
+    {
+        cursor = buffer.tail;
+        cursor_lines = buffer.length;
+        cout << "已移动到最后一行。" << endl;
+    }
+    else
+    {
+        cout << "文件为空。" << endl;
+    }
+}
+void TextEditor::move_to_prev_line()
+{
+    if (cursor && cursor->prev)
+    {
+        cursor = cursor->prev;
+        cursor_lines--;
+    }
+    else
+    {
+        cout << "已经是第一行或文件为空。" << endl;
+    }
+}
+void TextEditor::move_to_next_line()
+{
+    if (cursor && cursor->next)
+    {
+        cursor = cursor->next;
+        cursor_lines++;
+    }
+    else
+    {
+        cout << "已经是最后一行或文件为空。" << endl;
+    }
+}
+void TextEditor::move_to_line(int line_num)
+{
+    if (line_num < 1 || line_num > buffer.length)
+    {
+        cout << "无效的行号！" << endl;
+        return;
+    }
+    while (cursor_lines < line_num) move_to_next_line();
+    while (cursor_lines > line_num) move_to_prev_line();
+
+    cout << "已移动到第 " << line_num << " 行。" << endl;
+}
+void TextEditor::insert_line_after()
+{
+    string new_line;
+    cout << "输入新行内容: ";
+    getline(cin, new_line);
+    if (!cursor)
+    {
+        buffer.push_back(new_line);
+        cursor = buffer.head;
+        cursor_lines = 1;
+    }
+    else
+    {
+        buffer.insert_after(cursor, new_line);
+        cursor = cursor->next;
+        cursor_lines++;
+    }
+    cout << "已插入新行。" << endl;
+}
+void TextEditor::delete_current_line()
+{
+    if (!cursor)
+    {
+        cout << "文件为空，无法删除。" << endl;
+        return;
+    }
+    Node* node_to_delete = cursor;
+    if (cursor->next)
+    {
+        cursor = cursor->next;
+    }
+    else if (cursor->prev)
+    {
+        cursor = cursor->prev;
+        cursor_lines--;
+    }
+    else
+    {
+        cursor = nullptr;
+        cursor_lines = 0;
+    }
+    buffer.delete_node(node_to_delete);
+    cout << "已删除当前行。" << endl;
+}
+
+int main(int argc, char* argv[])
+{
+    if (argc != 3)
+    {
+        cout << "用法: " << argv[0] << " <输入文件> <输出文件>" << endl;
+        return 1;
+    }
+
+
+    TextEditor editor(argv[1], argv[2]);
+    editor.run();
 
     return 0;
 }

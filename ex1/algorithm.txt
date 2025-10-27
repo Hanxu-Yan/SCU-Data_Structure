@@ -1,0 +1,76 @@
+// 1. 初始化
+main(argc, argv):
+    检查命令行参数 (argv) 是否为 3 (程序名, 输入文件, 输出文件)
+    IF (argc != 3) THEN
+        打印用法错误并退出
+    ENDIF
+
+    创建 TextEditor 对象 editor(argv[1], argv[2])
+        // 构造函数内:
+        调用 load_file(argv[1]) 从输入文件加载内容
+            打开 ifstream
+            WHILE (getline(file, line))
+                buffer.push_back(line) // 将每行插入链表尾部
+            ENDWHILE
+            IF (buffer.head) THEN
+                cursor = buffer.head // 光标初始化为第一行
+                cursor_lines = 1
+            ENDIF
+
+    调用 editor.run()
+
+// 2. 主事件循环
+TextEditor::run():
+    打印欢迎信息
+    WHILE (true):
+        print_current_line_info() // 显示当前行号和内容
+        提示用户输入命令 "> "
+        读取单字符命令 command
+
+        SWITCH (command):
+            CASE 'h': show_help() // 显示帮助
+            CASE 'd': display_all() // 遍历链表，打印所有行
+
+            // --- 导航 ---
+            CASE 't': cursor = buffer.head; cursor_lines = 1 // 移到首行
+            CASE 'b': cursor = buffer.tail; cursor_lines = buffer.length // 移到末行
+            CASE 'p': IF (cursor->prev) THEN cursor = cursor->prev; cursor_lines-- // 上移
+            CASE 'n': IF (cursor->next) THEN cursor = cursor->next; cursor_lines++ // 下移
+            CASE 'g': 
+                读取目标行号 line_num
+                WHILE (cursor_lines < line_num) move_to_next_line()
+                WHILE (cursor_lines > line_num) move_to_prev_line()
+
+            // --- 编辑 ---
+            CASE 'i': // 在当前行后插入
+                读取新行内容 new_line
+                buffer.insert_after(cursor, new_line)
+                cursor = cursor->next; cursor_lines++
+            CASE 'x': // 删除当前行
+                node_to_delete = cursor
+                // 移动光标到下一行或上一行
+                IF (cursor->next) cursor = cursor->next
+                ELSE IF (cursor->prev) { cursor = cursor->prev; cursor_lines-- }
+                ELSE { cursor = nullptr; cursor_lines = 0 }
+                buffer.delete_node(node_to_delete)
+            CASE 'c': // 替换当前行
+                读取新行内容 new_line
+                cursor->data = new_line
+            CASE 'r': // 替换子串
+                读取 old_substr, new_substr
+                使用 string::find 查找 old_substr
+                WHILE (找到)
+                    使用 string::replace 替换
+                    继续查找
+                ENDWHILE
+
+            // --- 文件 I/O ---
+            CASE 'w': save_to_file()
+                打开 ofstream
+                遍历链表 (node = head to tail)
+                    file << node->data << endl
+            CASE 'l': reload_file()
+                buffer.clear()
+                load_file(input_filename)
+
+            CASE 'q': RETURN // 退出循环

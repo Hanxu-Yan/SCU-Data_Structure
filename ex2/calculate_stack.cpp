@@ -106,7 +106,7 @@ int main()
     try 
     {
         double result = evaluateExpression(expression);
-        cout << "表达式 \"" << expression << "\" 的计算结果是: " << result << endl;
+        cout << "表达式 " << expression << " 的计算结果是: " << result << endl;
     }
     catch (const exception& e) 
     {
